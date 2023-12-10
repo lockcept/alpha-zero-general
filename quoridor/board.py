@@ -1,6 +1,7 @@
 from collections import deque
-from action import ActionType, QuoridorAction
 import numpy as np
+
+from quoridor.action import ActionType, QuoridorAction
 
 
 class QuoridorBoard:
@@ -90,7 +91,7 @@ class QuoridorBoard:
                 horizontal_walls=horizontal_walls,
             )
 
-            if not np.any(distances[:, target_y[player]] >= 0):
+            if not np.any(distances[:, target_y[player]] != -1):
                 return False
 
         return True
@@ -183,6 +184,30 @@ class QuoridorBoard:
             # 정상적인 이동 벽 검사
             if not is_wall_empty(head=(old_x, old_y), tail=(x, y)):
                 return False
+
+            # target_y = {1: self.size - 1, 2: 0}
+            # distances = self.bfs_distance_with_walls(
+            #     position=(old_x, old_y),
+            #     vertical_walls=self.pieces[2],
+            #     horizontal_walls=self.pieces[3],
+            # )
+            # distances = np.where(distances == -1, np.inf, distances)
+            # old_distance = np.min(distances[:, target_y[player]])
+            # print(distances, old_distance)
+            # distances = self.bfs_distance_with_walls(
+            #     position=(x, y),
+            #     vertical_walls=self.pieces[2],
+            #     horizontal_walls=self.pieces[3],
+            # )
+            # distances = np.where(distances == -1, np.inf, distances)
+            # new_distance = np.min(distances[:, target_y[player]])
+            # print(
+            #     old_distance,
+            #     new_distance,
+            #     "!!",
+            # )
+            # if old_distance < new_distance:
+            #     return False
 
         elif action.action_type == ActionType.WALL_VERTICAL:
             player_wall_counts = self.pieces[3 + player]
@@ -305,4 +330,24 @@ class QuoridorBoard:
 
     def state_str(self, player=1):
         state = self.state(player=player)
-        return str(state)
+
+        def coordinates_to_string(coordinates):
+            return ",".join(
+                ["({},{})".format(coord[0], coord[1]) for coord in coordinates]
+            )
+
+        joined_string = (
+            coordinates_to_string([state["my_position"]])
+            + "/"
+            + coordinates_to_string([state["enemy_position"]])
+            + "/"
+            + coordinates_to_string(state["vertical_walls"])
+            + "/"
+            + coordinates_to_string(state["horizontal_walls"])
+            + "/"
+            + str(int(state["my_wall_count"]))
+            + "/"
+            + str(int(state["enemy_wall_count"]))
+        )
+
+        return joined_string

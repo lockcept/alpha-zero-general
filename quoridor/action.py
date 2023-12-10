@@ -1,5 +1,6 @@
-from config import BOARD_SIZE
 from enum import Enum
+
+from quoridor.config import BOARD_SIZE
 
 
 class ActionType(Enum):
@@ -17,7 +18,6 @@ class QuoridorAction:
     def __str__(self):
         return f"{self.action_type}, X: {self.x}, Y: {self.y}"
 
-    # 클래스 변수를 사용하여 계산 결과를 캐싱
     _all_actions = None
 
     @staticmethod
