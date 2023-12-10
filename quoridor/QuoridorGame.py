@@ -47,32 +47,82 @@ class QuoridorGame(Game):
         return np.array(valids)
 
     def getGameEnded(self, board, player: int):
-        # return 0 if not ended, 1 if player 1 won, -1 if player 1 lost
-        # player = 1
         b = QuoridorBoard(self.n)
         b.pieces = np.copy(board)
         return b.is_game_ended(player=player)
 
     def getCanonicalForm(self, board, player: int):
-        b = QuoridorBoard(self.n)
-        b.pieces = np.copy(board)
-        return player * board
+        if player == 1:
+            return np.copy(board)
+
+        size = self.n
+
+        def mirror_y_wall_positions(positions):
+            new_positions = np.zeros(size, size)
+            for x in range(size - 1):
+                for y in range(size - 1):
+                    new_positions[x][y] = positions[x][size - 2 - y]
+            return new_positions
+
+        new_board = np.copy(board)
+        return np.stack(
+            [
+                board[1][:, ::-1],
+                board[0][:, ::-1],
+                mirror_y_wall_positions(positions=board[2]),
+                mirror_y_wall_positions(positions=board[3]),
+                np.copy(board[5]),
+                np.copy(board[4]),
+            ],
+        )
 
     def getSymmetries(self, board, pi):
-        # mirror, rotational
-        assert len(pi) == self.n**2 + 1  # 1 for pass
-        pi_board = np.reshape(pi[:-1], (self.n, self.n))
-        l = []
+        # 좌우 대칭
+        assert len(pi) == self.getActionSize()
 
-        for i in range(1, 5):
-            for j in [True, False]:
-                newB = np.rot90(board, i)
-                newPi = np.rot90(pi_board, i)
-                if j:
-                    newB = np.fliplr(newB)
-                    newPi = np.fliplr(newPi)
-                l += [(newB, list(newPi.ravel()) + [pi[-1]])]
-        return l
+        size = self.n
+
+        def mirror_x_wall_positions(positions):
+            new_positions = np.zeros(size, size)
+            for x in range(size - 1):
+                for y in range(size - 1):
+                    new_positions[x][y] = positions[size - 2 - x][y]
+            return new_positions
+
+        new_board = np.stack(
+            [
+                board[0][::-1, :],
+                board[1][::-1, :],
+                mirror_x_wall_positions(positions=board[2]),
+                mirror_x_wall_positions(positions=board[3]),
+                np.copy(board[4]),
+                np.copy(board[5]),
+            ]
+        )
+
+        move_actions_num = size * size
+        wall_actions_num = (size - 1) * (size - 1)
+
+        moves = pi[0:move_actions_num]
+        vertical_walls = pi[move_actions_num : move_actions_num + wall_actions_num]
+        horizontal_walls = pi[
+            move_actions_num
+            + wall_actions_num : move_actions_num
+            + wall_actions_num * 2
+        ]
+
+        mirror_moves = np.reshape(moves, (size, size))[::-1, :]
+        vertical_moves = np.reshape(vertical_walls, (size - 1, size - 1))[::-1, :]
+        horizontal_moves = np.reshape(horizontal_walls, (size - 1, size - 1))[::-1, :]
+
+        return [
+            (
+                new_board,
+                np.concatenate(
+                    mirror_moves + vertical_moves + horizontal_moves, axis=None
+                ),
+            )
+        ]
 
     def stringRepresentation(self, board: QuoridorBoard):
         return board.state_str()
@@ -80,7 +130,11 @@ class QuoridorGame(Game):
     def getScore(self, board, player):
         b = QuoridorBoard(self.n)
         b.pieces = np.copy(board)
-        return b.countDiff(player)
+        distances = b.bfs_distance(player=player)
+        target_y = {1: self.size - 1, 2: 0}
+        score = np.min(distances[:, target_y[player]])
+
+        return score
 
     @staticmethod
     def display(board: QuoridorBoard):
