@@ -1,52 +1,94 @@
+from collections import deque
 from action import ActionType, QuoridorAction
-from config import BOARD_SIZE, WALL_COUNT
+import numpy as np
 
 
 class QuoridorBoard:
-    def __init__(self):
-        self.size = BOARD_SIZE
-        self.player_positions = {
+    def __init__(self, size: int, wall_count: int):
+        self.size = size
+
+        player1_position_channel = np.zeros((size, size))
+        player2_position_channel = np.zeros((size, size))
+        vertical_wall_channel = np.zeros((size, size))
+        horizontal_wall_channel = np.zeros((size, size))
+        wall_count_channel_player1 = np.full((size, size), wall_count)
+        wall_count_channel_player2 = np.full((size, size), wall_count)
+
+        player_positions = {
             1: (self.size // 2, 0),
             2: (self.size // 2, self.size - 1),
         }
-        self.player_wall_counts = {1: WALL_COUNT, 2: WALL_COUNT}
-        self.vertical_walls = set()
-        self.horizontal_walls = set()
 
-    def is_opened_walls(self, vertical_walls, horizontal_walls, player_positions):
-        target_y = {1: self.size - 1, 2: 0}
-        visited = set()
+        player1_position_channel[player_positions[1]] = 1
+        player2_position_channel[player_positions[2]] = 1
 
-        def dfs(player, x, y):
-            if y == target_y[player]:
-                return True
+        self.pieces = np.stack(
+            [
+                player1_position_channel,
+                player2_position_channel,
+                vertical_wall_channel,
+                horizontal_wall_channel,
+                wall_count_channel_player1,
+                wall_count_channel_player2,
+            ],
+        )
 
-            visited.add((x, y))
+    def bfs_distance(self, position):
+        vertical_walls = self.pieces[2]
+        horizontal_walls = self.pieces[3]
+        return self.bfs_distance_with_walls(
+            self,
+            position,
+            vertical_walls=vertical_walls,
+            horizontal_walls=horizontal_walls,
+        )
 
-            for dx, dy in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+    def bfs_distance_with_walls(self, position, vertical_walls, horizontal_walls):
+        distances = np.full((self.size, self.size), -1)
+        x, y = position
+
+        queue = deque([(x, y)])
+        distances[x][y] = 0
+
+        moves = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+
+        while queue:
+            x, y = queue.popleft()
+            distance = distances[x][y]
+
+            for dx, dy in moves:
                 new_x, new_y = x + dx, y + dy
+
                 if (
-                    (new_x, new_y) not in visited
-                    and 0 <= new_x < self.size
+                    0 <= new_x < self.size
                     and 0 <= new_y < self.size
+                    and distances[new_x][new_y] == -1
                 ):
                     if (
                         dx == 0
-                        and not (x, min(y, new_y)) in horizontal_walls
-                        and not (x - 1, min(y, new_y)) in horizontal_walls
+                        and horizontal_walls[x][min(y, new_y)] == 0
+                        and (x - 1 < 0 or horizontal_walls[x - 1][min(y, new_y)] == 0)
                     ) or (
                         dy == 0
-                        and not (min(x, new_x), y) in vertical_walls
-                        and not (min(x, new_x), y - 1) in vertical_walls
+                        and vertical_walls[min(x, new_x)][y] == 0
+                        and (y - 1 < 0 or vertical_walls[min(x, new_x)][y - 1] == 0)
                     ):
-                        if dfs(player, new_x, new_y):
-                            return True
+                        distances[new_x][new_y] = distance + 1
+                        queue.append((new_x, new_y))
 
-            return False
+        return distances
 
-        for player, (x, y) in player_positions.items():
-            visited.clear()
-            if not dfs(player, x, y):
+    def is_opened_walls(self, vertical_walls, horizontal_walls, player_positions):
+        target_y = {1: self.size - 1, 2: 0}
+
+        for player, (x, y) in enumerate(player_positions):
+            distances = self.bfs_distance_with_walls(
+                position=(x, y),
+                vertical_walls=vertical_walls,
+                horizontal_walls=horizontal_walls,
+            )
+
+            if not np.any(distances[:, target_y[player + 1]] >= 0):
                 return False
 
         return True
@@ -54,6 +96,15 @@ class QuoridorBoard:
     def is_valid_action(self, player, action: QuoridorAction):
         if player not in (1, 2):
             raise ValueError("플레이어 번호는 1 또는 2여야 합니다.")
+
+        player_positions = self.pieces[player - 1]
+        enemy_positions = self.pieces[2 - player]
+
+        vertical_walls = self.pieces[2]
+        horizontal_walls = self.pieces[3]
+
+        player_place = np.argwhere(player_positions == 1)[0]
+        enemy_place = np.argwhere(enemy_positions == 1)[0]
 
         def is_wall_empty(head, tail):
             (head_x, head_y) = head
@@ -66,14 +117,14 @@ class QuoridorBoard:
             y = min(head_y, tail_y)
 
             if is_horizontal:
-                if (x, y) in self.vertical_walls:
+                if vertical_walls[x][y] == 1:
                     return False
-                if (x, y - 1) in self.vertical_walls:
+                if y - 1 >= 0 and vertical_walls[x][y - 1] == 1:
                     return False
             else:
-                if (x, y) in self.horizontal_walls:
+                if horizontal_walls[x][y] == 1:
                     return False
-                if (x - 1, y) in self.horizontal_walls:
+                if x - 1 >= 0 and horizontal_walls[x - 1][y] == 1:
                     return False
             return True
 
@@ -82,13 +133,13 @@ class QuoridorBoard:
             if not (0 <= x < self.size) or not (0 <= y < self.size):
                 return False
 
-            if (x, y) == self.player_positions[player]:
+            if player_positions[x][y] == 1:
                 return False
-            if (x, y) == self.player_positions[3 - player]:
+            if enemy_positions[x][y] == 1:
                 return False
 
-            old_x, old_y = self.player_positions[player]
-            enemy_place = self.player_positions[3 - player]
+            old_x, old_y = player_place
+            enemy_x, enemy_y = enemy_place
 
             if (abs(old_x - x) + abs(old_y - y)) != 1:
                 # 이동 거리가 1이 아닌 경우 뛰어넘기 검사
@@ -97,7 +148,7 @@ class QuoridorBoard:
                         center_x = (old_x + x) // 2
                         center_y = (old_y + y) // 2
                         if (
-                            (center_x, center_y) == enemy_place
+                            (center_x, center_y) == (enemy_x, enemy_y)
                             and is_wall_empty(
                                 head=(old_x, old_y), tail=(center_x, center_y)
                             )
@@ -106,7 +157,7 @@ class QuoridorBoard:
                             return True
                     else:
                         if (
-                            (old_x, y) == enemy_place
+                            (old_x, y) == (enemy_x, enemy_y)
                             and is_wall_empty(head=(old_x, old_y), tail=(old_x, y))
                             and is_wall_empty(head=(old_x, y), tail=(x, y))
                             and not is_wall_empty(
@@ -115,7 +166,7 @@ class QuoridorBoard:
                         ):
                             return True
                         if (
-                            (x, old_y) == enemy_place
+                            (x, old_y) == (enemy_x, enemy_y)
                             and is_wall_empty(head=(old_x, old_y), tail=(x, old_y))
                             and is_wall_empty(head=(x, old_y), tail=(x, y))
                             and not is_wall_empty(
@@ -132,53 +183,57 @@ class QuoridorBoard:
                 return False
 
         elif action.action_type == ActionType.WALL_VERTICAL:
-            if self.player_wall_counts[player] == 0:
+            player_wall_counts = self.pieces[3 + player]
+            if player_wall_counts[0][0] == 0:
                 return False
+
             x, y = action.x, action.y
             if not (0 <= x < self.size - 1) or not (0 <= y < self.size - 1):
                 return False
 
-            if (x, y) in self.horizontal_walls:
+            if horizontal_walls[x][y] == 1:
                 return False
             if (
-                (x, y - 1) in self.vertical_walls
-                or (x, y) in self.vertical_walls
-                or (x, y + 1) in self.vertical_walls
+                (y - 1 >= 0 and vertical_walls[x][y - 1] == 1)
+                or vertical_walls[x][y] == 1
+                or vertical_walls[x][y + 1] == 1
             ):
                 return False
 
-            new_vertical_walls = set(self.vertical_walls)
-            new_vertical_walls.add((x, y))
+            new_vertical_walls = np.copy(vertical_walls)
+            new_vertical_walls[x][y] = 1
 
             if not self.is_opened_walls(
-                player_positions=self.player_positions,
+                player_positions=[tuple(player_place), tuple(enemy_place)],
                 vertical_walls=new_vertical_walls,
-                horizontal_walls=self.horizontal_walls,
+                horizontal_walls=horizontal_walls,
             ):
                 return False
 
         elif action.action_type == ActionType.WALL_HORIZONTAL:
-            if self.player_wall_counts[player] == 0:
+            player_wall_counts = self.pieces[3 + player]
+            if player_wall_counts[0][0] == 0:
                 return False
+
             x, y = action.x, action.y
             if not (0 <= x < self.size - 1) or not (0 <= y < self.size - 1):
                 return False
 
-            if (x, y) in self.vertical_walls:
+            if vertical_walls[x, y] == 1:
                 return False
             if (
-                (x - 1, y) in self.horizontal_walls
-                or (x, y) in self.horizontal_walls
-                or (x + 1, y) in self.horizontal_walls
+                (x - 1 >= 0 and horizontal_walls[x - 1, y] == 1)
+                or horizontal_walls[x, y] == 1
+                or horizontal_walls[x + 1, y] == 1
             ):
                 return False
 
-            new_horizontal_walls = set(self.horizontal_walls)
-            new_horizontal_walls.add((x, y))
+            new_horizontal_walls = np.copy(horizontal_walls)
+            new_horizontal_walls[x][y] = 1
 
             if not self.is_opened_walls(
-                player_positions=self.player_positions,
-                vertical_walls=self.vertical_walls,
+                player_positions=[tuple(player_place), tuple(enemy_place)],
+                vertical_walls=vertical_walls,
                 horizontal_walls=new_horizontal_walls,
             ):
                 return False
@@ -188,22 +243,64 @@ class QuoridorBoard:
     def action_player(self, player: int, action: QuoridorAction):
         if self.is_valid_action(player, action):
             if action.action_type == ActionType.MOVE:
-                self.player_positions[player] = (action.x, action.y)
+                new_position_channel = np.zeros((self.size, self.size))
+                new_position_channel[action.x][action.y] = 1
+                self.pieces[player - 1] = new_position_channel
             elif action.action_type == ActionType.WALL_VERTICAL:
-                self.vertical_walls.add((action.x, action.y))
-                self.player_wall_counts[player] -= 1
+                self.pieces[2][action.x][action.y] = 1
+                player_wall_count = self.pieces[3 + player][0][0]
+                new_wall_count_channel = np.full(
+                    (self.size, self.size), player_wall_count - 1
+                )
+                self.pieces[3 + player] = new_wall_count_channel
             elif action.action_type == ActionType.WALL_HORIZONTAL:
-                self.horizontal_walls.add((action.x, action.y))
-                self.player_wall_counts[player] -= 1
+                self.pieces[3][action.x][action.y] = 1
+                player_wall_count = self.pieces[3 + player][0][0]
+                new_wall_count_channel = np.full(
+                    (self.size, self.size), player_wall_count - 1
+                )
+                self.pieces[3 + player] = new_wall_count_channel
+
+    def is_game_ended(self, player):
+        # return 0 if not ended, 1 if player 1 won, -1 if player 1 lost
+
+        end_y = {1: self.size - 1, 2: 0}
+
+        player_positions = self.pieces[player - 1]
+        enemy_positions = self.pieces[2 - player]
+
+        player_place = np.argwhere(player_positions == 1)[0]
+        enemy_place = np.argwhere(enemy_positions == 1)[0]
+
+        if player_place[1] == end_y[player]:
+            return 1
+        if enemy_place[1] == end_y[3 - player]:
+            return -1
+        return 0
 
     def state(self, player=1):
         enemy_player = 3 - player
+        player_positions = self.pieces[player - 1]
+        enemy_positions = self.pieces[2 - player]
+
+        vertical_walls = self.pieces[2]
+        horizontal_walls = self.pieces[3]
+
+        player_wall_count = self.pieces[3 + player][0][0]
+        enemy_wall_count = self.pieces[3 + enemy_player][0][0]
+
+        player_place = np.argwhere(player_positions == 1)[0]
+        enemy_place = np.argwhere(enemy_positions == 1)[0]
         state = {
-            "my_position": self.player_positions[player],
-            "enemy_position": self.player_positions[enemy_player],
-            "my_wall_count": self.player_wall_counts[player],
-            "enemy_wall_count": self.player_wall_counts[enemy_player],
-            "vertical_walls": list(self.vertical_walls),
-            "horizontal_walls": list(self.horizontal_walls),
+            "my_position": player_place,
+            "enemy_position": enemy_place,
+            "my_wall_count": player_wall_count,
+            "enemy_wall_count": enemy_wall_count,
+            "vertical_walls": np.argwhere(vertical_walls == 1),
+            "horizontal_walls": np.argwhere(horizontal_walls == 1),
         }
         return state
+
+    def state_str(self, player=1):
+        state = self.state(player=player)
+        return str(state)
