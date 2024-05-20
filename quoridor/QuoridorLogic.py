@@ -1,3 +1,4 @@
+from collections import deque
 import numpy as np
 
 
@@ -82,19 +83,80 @@ class Board:
     def is_legal_wall(self, pos, wall_type):
         if pos[0] < 0 or pos[0] >= self.n - 1 or pos[1] < 0 or pos[1] >= self.n - 1:
             return False
-        if wall_type == 0 and (
-            pos in self.h_walls
-            or (pos[0], pos[1] - 1) in self.h_walls
-            or (pos[0], pos[1] + 1) in self.h_walls
+
+        if wall_type == 0:  # 수평 벽
+            if (
+                pos in self.h_walls
+                or (pos[0], pos[1] - 1) in self.h_walls
+                or (pos[0], pos[1] + 1) in self.h_walls
+                or (pos in self.v_walls)
+            ):
+                return False
+        elif wall_type == 1:  # 수직 벽
+            if (
+                pos in self.v_walls
+                or (pos[0] - 1, pos[1]) in self.v_walls
+                or (pos[0] + 1, pos[1]) in self.v_walls
+                or (pos in self.h_walls)
+            ):
+                return False
+
+        temp_h_walls = self.h_walls.copy()
+        temp_v_walls = self.v_walls.copy()
+        if wall_type == 0:
+            temp_h_walls.add(pos)
+        else:
+            temp_v_walls.add(pos)
+
+        if not (
+            self.can_reach_goal(self.p1_pos, 1, temp_h_walls, temp_v_walls)
+            and self.can_reach_goal(self.p2_pos, 2, temp_h_walls, temp_v_walls)
         ):
             return False
-        if wall_type == 1 and (
-            pos in self.v_walls
-            or (pos[0] - 1, pos[1]) in self.v_walls
-            or (pos[0] + 1, pos[1]) in self.v_walls
-        ):
-            return False
+
         return True
+
+    def can_reach_goal(self, start, player, h_walls, v_walls):
+        goal_row = self.n - 1 if player == 1 else 0
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        queue = deque([start])
+        visited = set()
+        visited.add(start)
+
+        while queue:
+            x, y = queue.popleft()
+            if x == goal_row:
+                return True
+
+            for dx, dy in directions:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < self.n and 0 <= ny < self.n and (nx, ny) not in visited:
+                    if (
+                        (
+                            dx == -1
+                            and (x - 1, y - 1) not in h_walls
+                            and (x - 1, y) not in h_walls
+                        )
+                        or (
+                            dx == 1
+                            and (x, y - 1) not in h_walls
+                            and (x, y) not in h_walls
+                        )
+                        or (
+                            dy == -1
+                            and (x - 1, y - 1) not in v_walls
+                            and (x, y - 1) not in v_walls
+                        )
+                        or (
+                            dy == 1
+                            and (x, y - 1) not in v_walls
+                            and (x + 1, y - 1) not in v_walls
+                        )
+                    ):
+                        queue.append((nx, ny))
+                        visited.add((nx, ny))
+
+        return False
 
     def get_legal_walls(self, player):
         legal_walls = []

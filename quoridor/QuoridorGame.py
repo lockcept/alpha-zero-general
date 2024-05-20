@@ -47,7 +47,6 @@ class QuoridorGame(Game):
         return (b.to_array(), -player)
 
     def getValidMoves(self, board, player):
-        # 주어진 상태에서 가능한 행동 반환
         valids = [0] * self.getActionSize()
         b = Board(self.n)
         b.p1_pos = tuple(np.argwhere(board[:, :, 0] == 1)[0])
