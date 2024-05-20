@@ -169,6 +169,10 @@ class Board:
 
     def get_legal_walls(self, player):
         legal_walls = []
+        if player == 1 and self.p1_walls <= 0:
+            return legal_walls
+        if player == 2 and self.p2_walls <= 0:
+            return legal_walls
         for i in range(self.n - 1):
             for j in range(self.n - 1):
                 if self.is_legal_wall((i, j), 0):
