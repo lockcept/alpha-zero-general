@@ -34,51 +34,60 @@ class Board:
         else:
             return self.p2_pos[0] == 0
 
-    def is_legal_move(self, pos, player):
-        if pos[0] < 0 or pos[0] >= self.n or pos[1] < 0 or pos[1] >= self.n:
-            return False
-        if player == 1:
-            current_pos = self.p1_pos
-        else:
-            current_pos = self.p2_pos
+    def is_wall_between(self, pos1, pos2):
+        # 인접한 두 포지션이라고 가정
+        x1, y1 = pos1
+        x2, y2 = pos2
 
-        if pos == (current_pos[0] - 1, current_pos[1]) and (
-            (pos[0], pos[1]) in self.h_walls or (pos[0], pos[1] - 1) in self.h_walls
-        ):
-            return False
-        if pos == (current_pos[0] + 1, current_pos[1]) and (
-            (current_pos[0], current_pos[1]) in self.h_walls
-            or (current_pos[0], current_pos[1] - 1) in self.h_walls
-        ):
-            return False
-        if pos == (current_pos[0], current_pos[1] - 1) and (
-            (pos[0], pos[1]) in self.v_walls or (pos[0] - 1, pos[1]) in self.v_walls
-        ):
-            return False
-        if pos == (current_pos[0], current_pos[1] + 1) and (
-            (current_pos[0], current_pos[1]) in self.v_walls
-            or (current_pos[0] - 1, current_pos[1]) in self.v_walls
-        ):
-            return False
-
-        return True
+        if x1 == x2:
+            y = min(y1, y2)
+            if (x1 - 1, y) in self.v_walls or (x1, y) in self.v_walls:
+                return True
+        elif y1 == y2:
+            x = min(x1, x2)
+            if (x, y1 - 1) in self.h_walls or (x, y1) in self.h_walls:
+                return True
+        return False
 
     def get_legal_moves(self, player):
         if player == 1:
             pos = self.p1_pos
+            opponent_pos = self.p2_pos
         else:
             pos = self.p2_pos
+            opponent_pos = self.p1_pos
 
-        possible_moves = [
-            (pos[0] - 1, pos[1]),
-            (pos[0] + 1, pos[1]),
-            (pos[0], pos[1] - 1),
-            (pos[0], pos[1] + 1),
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        legal_moves = []
+
+        for move in directions:
+            new_pos = (pos[0] + move[0], pos[1] + move[1])
+            if not self.is_wall_between(pos, new_pos):
+                # 도착 위치에 적이 있는 경우
+                if new_pos == opponent_pos:
+                    jump_pos = (new_pos[0] + move[0], new_pos[1] + move[1])
+                    if not self.is_wall_between(new_pos, jump_pos):
+                        legal_moves.append(jump_pos)
+                    else:
+                        # 수직 방향 이동 검사
+                        vertical_moves = []
+                        if move[0] == 0:
+                            vertical_moves = [(-1, 0), (1, 0)]
+                        else:
+                            vertical_moves = [(0, -1), (0, 1)]
+
+                        for v_move in vertical_moves:
+                            new_v_pos = (new_pos[0] + v_move[0], new_pos[1] + v_move[1])
+                            if not self.is_wall_between(new_pos, new_v_pos):
+                                legal_moves.append(new_v_pos)
+                else:
+                    legal_moves.append((pos[0] + move[0], pos[1] + move[1]))
+
+        return [
+            (x, y)
+            for x, y in legal_moves
+            if x >= 0 and x < self.n and y >= 0 and y < self.n
         ]
-        legal_moves = [
-            move for move in possible_moves if self.is_legal_move(move, player)
-        ]
-        return legal_moves
 
     def is_legal_wall(self, pos, wall_type):
         if pos[0] < 0 or pos[0] >= self.n - 1 or pos[1] < 0 or pos[1] >= self.n - 1:
