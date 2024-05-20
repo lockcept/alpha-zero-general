@@ -141,25 +141,39 @@ class QuoridorGame(Game):
         return board.tostring()
 
     @staticmethod
-    def display(board: Board):
+    def display(board):
         n = board.shape[0]
-        print("  ", end="")
-        for y in range(n):
-            print(y, end=" ")
-        print("")
+        board_size = 2 * n - 1
+        display_board = np.full((board_size, board_size), " ", dtype=str)
 
         for x in range(n):
-            print(x, end=" ")
             for y in range(n):
                 piece = board[x, y, :]
+                dx, dy = 2 * x, 2 * y
+
                 if piece[0] == 1:
-                    print("1", end=" ")
+                    display_board[dx, dy] = "1"
                 elif piece[1] == 1:
-                    print("2", end=" ")
-                elif piece[2] == 1:
-                    print("-", end=" ")
-                elif piece[3] == 1:
-                    print("|", end=" ")
+                    display_board[dx, dy] = "2"
                 else:
-                    print(".", end=" ")
+                    display_board[dx, dy] = "."
+
+                if piece[2] == 1:
+                    display_board[dx + 1, dy] = "-"
+                    display_board[dx + 1, dy + 1] = "-"
+                    display_board[dx + 1, dy + 2] = "-"
+                if piece[3] == 1:
+                    display_board[dx, dy + 1] = "|"
+                    display_board[dx + 1, dy + 1] = "|"
+                    display_board[dx + 2, dy + 1] = "|"
+
+        print("  ", end="")
+        for y in range(board_size):
+            print(y % 10, end=" ")
+        print("")
+
+        for x in range(board_size):
+            print(x % 10, end=" ")
+            for y in range(board_size):
+                print(display_board[x, y], end=" ")
             print("")
