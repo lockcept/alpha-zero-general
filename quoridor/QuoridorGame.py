@@ -100,7 +100,6 @@ class QuoridorGame(Game):
         return 0
 
     def getCanonicalForm(self, board, player):
-        # 표준 형태의 보드 반환
         if player == 1:
             return board
         else:
@@ -110,28 +109,33 @@ class QuoridorGame(Game):
             new_board[:, :, 4:6] = np.flip(board[:, :, 4:6], axis=2)
             return new_board
 
+    def getFlipedForm(self, board):
+        new_board = np.zeros_like(board)
+        new_board[:, :, 0:2] = np.flip(board[:, :, 0:2], axis=1)
+        new_board[:-1, :-1, 2:4] = np.flip(board[:-1, :-1, 2:4], axis=1)
+        new_board[:, :, 4:6] = np.copy(board[:, :, 4:6])
+        return new_board
+
     def getSymmetries(self, board, pi):
-        # 대칭 상태 반환
-        assert len(pi) == self.getActionSize()  # 올바른 pi 길이 확인
+        assert len(pi) == self.getActionSize()
 
-        pi_board = np.reshape(pi[: self.n * self.n], (self.n, self.n))
-        pi_walls = pi[self.n * self.n :]
+        n = self.n
+        pi_board = np.reshape(pi[: n * n], (n, n))
+        pi_walls = np.reshape(pi[n * n :], (2, n - 1, n - 1))
 
-        l = []
+        symmetries = []
 
-        for i in range(1, 5):
-            newB = np.rot90(board, i)
-            newPi = np.rot90(pi_board, i)
-            newWalls = pi_walls.copy()
-            if i % 2 == 1:
-                newWalls[: len(newWalls) // 2], newWalls[len(newWalls) // 2 :] = (
-                    newWalls[len(newWalls) // 2 :],
-                    newWalls[: len(newWalls) // 2],
-                )
-            newPi = list(newPi.ravel()) + list(newWalls)
-            l += [(newB, newPi)]
+        # 원래 모습
+        symmetries.append((board, pi))
 
-        return l
+        # 좌우 대칭
+        board_lr = self.getFlipedForm(board)
+        pi_board_lr = np.fliplr(pi_board)
+        pi_walls_lr = np.flip(pi_walls, axis=2)
+        pi_lr = list(pi_board_lr.ravel()) + list(pi_walls_lr.ravel())
+        symmetries.append((board_lr, pi_lr))
+
+        return symmetries
 
     def stringRepresentation(self, board):
         # 보드 상태를 문자열로 반환

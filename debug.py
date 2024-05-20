@@ -26,9 +26,13 @@ def printBoard(b):
     print("플레이어 2의 벽 개수:\n", b[:, :, 5])
 
 
-new_board = g.getCanonicalForm(board, -1)
+# new_board = g.getCanonicalForm(board, -1)
+
+
+new_board, new_pi = g.getSymmetries(board, np.arange(g.getActionSize()))[1]
 
 print("원래 보드 상태:")
 printBoard(board)
 print("새로운 보드 상태:")
 printBoard(new_board)
+print(new_pi)
