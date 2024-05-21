@@ -177,3 +177,4 @@ class QuoridorGame(Game):
             for y in range(board_size):
                 print(display_board[x, y], end=" ")
             print("")
+        print("wall 1: ", board[0, 0, 4], ", wall 2: ", board[0, 0, 5])
