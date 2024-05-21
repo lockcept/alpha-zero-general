@@ -158,8 +158,8 @@ class Board:
                         )
                         or (
                             dy == 1
-                            and (x, y - 1) not in v_walls
-                            and (x + 1, y - 1) not in v_walls
+                            and (x - 1, y) not in v_walls
+                            and (x, y) not in v_walls
                         )
                     ):
                         queue.append((nx, ny))
