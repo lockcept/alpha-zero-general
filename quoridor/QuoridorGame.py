@@ -15,19 +15,22 @@ class QuoridorGame(Game):
         return (
             self.n,
             self.n,
-            6,
-        )  # p1_pos, p2_pos, h_walls, v_walls, p1_walls, p2_walls
+            7,
+        )  # p1_pos, p2_pos, h_walls, v_walls, p1_walls, p2_walls, turns
 
     def getActionSize(self):
         return self.n * self.n + (self.n - 1) * (self.n - 1) * 2
 
     def getNextState(self, board, player: int, action: int):
         # valid action만 들어온다고 가정
+        board = self.getCanonicalForm(board, player)
+
         b = Board(self.n)
         b.p1_pos = tuple(np.argwhere(board[:, :, 0] == 1)[0])
         b.p2_pos = tuple(np.argwhere(board[:, :, 1] == 1)[0])
         b.p1_walls = int(board[0, 0, 4])
         b.p2_walls = int(board[0, 0, 5])
+        b.turn_count = int(board[0, 0, 6])
 
         for i in range(self.n):
             for j in range(self.n):
@@ -38,13 +41,15 @@ class QuoridorGame(Game):
 
         if action < self.n * self.n:
             move = (action // self.n, action % self.n)
-            b.execute_move(move, player)
+            b.execute_move(move, 1)
         else:
             wall_type = (action - self.n * self.n) // ((self.n - 1) * (self.n - 1))
             wall_pos = (action - self.n * self.n) % ((self.n - 1) * (self.n - 1))
             wall_pos = (wall_pos // (self.n - 1), wall_pos % (self.n - 1))
-            b.place_wall(wall_pos, wall_type, player)
-        return (b.to_array(), -player)
+            b.place_wall(wall_pos, wall_type, 1)
+
+        canonical_b = self.getCanonicalForm(b.to_array(), player)
+        return (canonical_b, -player)
 
     def getValidMoves(self, board, player):
         valids = [0] * self.getActionSize()
@@ -84,6 +89,7 @@ class QuoridorGame(Game):
         b.p2_pos = tuple(np.argwhere(board[:, :, 1] == 1)[0])
         b.p1_walls = int(board[0, 0, 4])
         b.p2_walls = int(board[0, 0, 5])
+        b.turn_count = int(board[0, 0, 6])
 
         for i in range(self.n):
             for j in range(self.n):
@@ -91,6 +97,9 @@ class QuoridorGame(Game):
                     b.h_walls.add((i, j))
                 if board[i, j, 3] == 1:
                     b.v_walls.add((i, j))
+
+        if b.turn_count == 0:
+            return -10
 
         if b.is_win(player):
             return 1
@@ -106,6 +115,7 @@ class QuoridorGame(Game):
             new_board[:, :, 0:2] = np.flip(board[:, :, 0:2], axis=[0, 2])
             new_board[:-1, :-1, 2:4] = np.flip(board[:-1, :-1, 2:4], axis=0)
             new_board[:, :, 4:6] = np.flip(board[:, :, 4:6], axis=2)
+            new_board[:, :, 6:7] = np.copy(board[:, :, 6:7])
             return new_board
 
     def getFlipedForm(self, board):
@@ -113,6 +123,7 @@ class QuoridorGame(Game):
         new_board[:, :, 0:2] = np.flip(board[:, :, 0:2], axis=1)
         new_board[:-1, :-1, 2:4] = np.flip(board[:-1, :-1, 2:4], axis=1)
         new_board[:, :, 4:6] = np.copy(board[:, :, 4:6])
+        new_board[:, :, 6:7] = np.copy(board[:, :, 6:7])
         return new_board
 
     def getSymmetries(self, board, pi):
@@ -177,4 +188,11 @@ class QuoridorGame(Game):
             for y in range(board_size):
                 print(display_board[x, y], end=" ")
             print("")
-        print("wall 1: ", board[0, 0, 4], ", wall 2: ", board[0, 0, 5])
+        print(
+            "wall 1: ",
+            board[0, 0, 4],
+            ", wall 2: ",
+            board[0, 0, 5],
+            ", turn count: ",
+            board[0, 0, 6],
+        )

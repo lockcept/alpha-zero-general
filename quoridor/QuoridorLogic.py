@@ -7,16 +7,18 @@ class Board:
         self.n = n
         self.p1_pos = (0, n // 2)
         self.p2_pos = (n - 1, n // 2)
-        self.p1_walls = 10
-        self.p2_walls = 10
+        self.p1_walls = n * n // 8
+        self.p2_walls = n * n // 8
         self.h_walls = set()
         self.v_walls = set()
+        self.turn_count = n * n * 2
 
     def execute_move(self, move, player):
         if player == 1:
             self.p1_pos = move
         else:
             self.p2_pos = move
+        self.turn_count -= 1
 
     def place_wall(self, pos, wall_type, player):
         if wall_type == 0:
@@ -27,6 +29,7 @@ class Board:
             self.p1_walls -= 1
         else:
             self.p2_walls -= 1
+        self.turn_count -= 1
 
     def is_win(self, player):
         if player == 1:
@@ -66,9 +69,13 @@ class Board:
                 # 도착 위치에 적이 있는 경우
                 if new_pos == opponent_pos:
                     jump_pos = (new_pos[0] + move[0], new_pos[1] + move[1])
-                    if not self.is_wall_between(new_pos, jump_pos):
-                        legal_moves.append(jump_pos)
-                    else:
+                    if (
+                        self.is_wall_between(new_pos, jump_pos)
+                        or jump_pos[0] < 0
+                        or jump_pos[0] >= self.n
+                        or jump_pos[1] < 0
+                        or jump_pos[1] >= self.n
+                    ):
                         # 수직 방향 이동 검사
                         vertical_moves = []
                         if move[0] == 0:
@@ -80,6 +87,8 @@ class Board:
                             new_v_pos = (new_pos[0] + v_move[0], new_pos[1] + v_move[1])
                             if not self.is_wall_between(new_pos, new_v_pos):
                                 legal_moves.append(new_v_pos)
+                    else:
+                        legal_moves.append(jump_pos)
                 else:
                     legal_moves.append((pos[0] + move[0], pos[1] + move[1]))
 
@@ -182,7 +191,7 @@ class Board:
         return legal_walls
 
     def to_array(self):
-        board_array = np.zeros((self.n, self.n, 6))
+        board_array = np.zeros((self.n, self.n, 7))
         board_array[self.p1_pos][0] = 1
         board_array[self.p2_pos][1] = 1
         for wall in self.h_walls:
@@ -191,4 +200,5 @@ class Board:
             board_array[wall][3] = 1
         board_array[:, :, 4] = self.p1_walls
         board_array[:, :, 5] = self.p2_walls
+        board_array[:, :, 6] = self.turn_count
         return board_array
