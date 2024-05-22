@@ -70,15 +70,12 @@ class Coach:
             r = self.game.getGameEnded(board, self.curPlayer)
 
             if r != 0:
-                if r < -1:  # 타임 오버
-                    return [(x[0], x[2], r) for x in trainExamples]
-
                 return [
                     (x[0], x[2], r * ((-1) ** (x[1] != self.curPlayer)))
                     for x in trainExamples
                 ]
 
-    def learn(self):
+    def learn(self, verbose=False):
         """
         Performs numIters iterations with numEps episodes of self-play in each
         iteration. After every iteration, it retrains neural network with
@@ -138,8 +135,11 @@ class Coach:
                 lambda x: np.argmax(pmcts.getActionProb(x, temp=0)),
                 lambda x: np.argmax(nmcts.getActionProb(x, temp=0)),
                 self.game,
+                self.game.display,
             )
-            pwins, nwins, draws = arena.playGames(self.args.arenaCompare)
+            pwins, nwins, draws = arena.playGames(
+                self.args.arenaCompare, verbose=verbose
+            )
 
             log.info("NEW/PREV WINS : %d / %d ; DRAWS : %d" % (nwins, pwins, draws))
             if (

@@ -99,7 +99,7 @@ class QuoridorGame(Game):
                     b.v_walls.add((i, j))
 
         if b.turn_count == 0:
-            return -10
+            return -0.1
 
         if b.is_win(player):
             return 1
